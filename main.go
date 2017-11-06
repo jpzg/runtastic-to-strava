@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/golang/glog"
+	"github.com/jpzg/runtastic-to-strava/upload"
 	"github.com/metalnem/runtastic/api"
 	"github.com/pkg/errors"
 	"github.com/strava/go.strava"
@@ -68,7 +69,7 @@ func main() {
 	if thorough {
 		fmt.Println("Thorough mode is on")
 	}
-	
+
 	ctx := context.Background()
 	session, err := api.Login(ctx, email, password)
 
@@ -80,24 +81,18 @@ func main() {
 
 	client := strava.NewClient(token)
 	athlete := strava.NewCurrentAthleteService(client)
-	strava_meta, err := athlete.ListActivities().Page(1).Do()
+
+	switch thorough {
+	case true:
+		count, err := upload.UploadThorough(session, ctx, athlete)
+	case false:
+		count, err := upload.UploadNormal(session, ctx, athlete)
+	}
+
+	fmt.Printf("\nUploaded %d activities\n", count)
 
 	if err != nil {
 		glog.Exit(err)
-	}
-
-	runtastic_meta, err := session.GetMetadata(ctx)
-
-	if err != nil {
-		glog.Exit(err)
-	}
-
-	for _, activity := range runtastic_meta {
-		fmt.Println(activity)
-	}
-	
-	for _, activity := range strava_meta {
-		fmt.Println(activity)
 	}
 
 	glog.Flush()
