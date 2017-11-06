@@ -80,13 +80,12 @@ func main() {
 	fmt.Println("Successfully logged into Runtastic")
 
 	client := strava.NewClient(token)
-	athlete := strava.NewCurrentAthleteService(client)
 
 	switch thorough {
 	case true:
-		count, err := upload.UploadThorough(session, ctx, athlete)
+		count, err := upload.UploadThorough(session, ctx, client)
 	case false:
-		count, err := upload.UploadNormal(session, ctx, athlete)
+		count, err := upload.UploadNormal(session, ctx, client)
 	}
 
 	fmt.Printf("\nUploaded %d activities\n", count)

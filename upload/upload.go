@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/metalnem/runtastic/api"
 	"github.com/metalnem/runtastic/gpx"
@@ -12,7 +11,7 @@ import (
 )
 
 // initialize performs code that happens regardless of thoroughness, including getting metadata from runtastic and creating the Strava upload service.
-func initialize(session *api.Session, ctx context.Context, athlete *strava.CurrentAthleteService) ([]api.Metadata, *strava.UploadsService, error) {
+func initialize(session *api.Session, ctx context.Context, client *strava.Client) ([]api.Metadata, *strava.UploadsService, *strava.CurrentAthleteService, error) {
 
 	runtastic_metadata, err := session.GetMetadata(ctx)
 
@@ -20,13 +19,17 @@ func initialize(session *api.Session, ctx context.Context, athlete *strava.Curre
 		return nil, nil, nil, err
 	}
 
+	uploadsService := strava.NewUploadsService(client)
+	athlete := strava.NewCurrentAthleteService(client)
+
+	return runtastic_metadata, uploadsService, athlete, err
 }
 
 // uploadActivity takes a runtastic activity ID and uploads the corresponding activity to Strava.
 func uploadActivity(id api.ActivityID, session *api.Session, ctx context.Context, uploadsService *strava.UploadsService) (*strava.UploadSummary, error) {
 
 	var buffer bytes.Buffer
-	exp := gpx.NewExporter(buffer)
+	exp := gpx.NewExporter(&buffer)
 
 	activity, err := session.GetActivity(ctx, id)
 
@@ -34,28 +37,28 @@ func uploadActivity(id api.ActivityID, session *api.Session, ctx context.Context
 		return nil, err
 	}
 
-	err = exp.Export(activity)
+	err = exp.Export(*activity)
 
 	if err != nil {
 		return nil, err
 	}
 
-	activityType := activity.Type
+	var activityType strava.ActivityType
 
-	switch activityType {
+	switch activity.Type {
 	case "Running":
-		activityType = "run"
+		activityType = strava.ActivityTypes.Run
 	case "Biking":
-		activityType = "ride"
+		activityType = strava.ActivityTypes.Ride
 	case "Swimming":
-		activityType = "swim"
+		activityType = strava.ActivityTypes.Swim
 	case "Walking":
-		activityType = "walk"
+		activityType = strava.ActivityTypes.Walk
 	default:
-		activityType = "workout"
+		activityType = strava.ActivityTypes.Workout
 	}
 
-	summary, err := uploadsService.Create("gpx", "runtastic_activity.gpx", buffer).
+	summary, err := uploadsService.Create("gpx", "runtastic_activity.gpx", &buffer).
 		ActivityType(activityType).
 		Description(activity.Notes).
 		Do()
@@ -63,13 +66,21 @@ func uploadActivity(id api.ActivityID, session *api.Session, ctx context.Context
 	return summary, err
 }
 
-func UploadNormal(session *api.Session, ctx context.Context, athlete *strava.CurrentAthleteService) (int, error) {
+func UploadNormal(session *api.Session, ctx context.Context, client *strava.Client) (int, error) {
 	count := 0
+
+	runtastic_metadata, uploadsService, athlete, err := initialize(session, ctx, client)
+
+	if err != nil {
+		return count, err
+	}
+
 	strava_meta, err := athlete.ListActivities().Page(1).Do()
 
 	if err != nil {
 		return count, err
 	}
+
 	last_activity := strava_meta[0].StartDate
 	fmt.Printf("Last strava activity was on %s\n", last_activity)
 
@@ -78,13 +89,21 @@ func UploadNormal(session *api.Session, ctx context.Context, athlete *strava.Cur
 	if err != nil {
 		return count, err
 	}
+
 	fmt.Println("Successfully logged into Runtastic")
 
 	return count, nil
 }
 
-func UploadThorough(session *api.Session, ctx context.Context, athlete *strava.CurrentAthleteService) (int, error) {
+func UploadThorough(session *api.Session, ctx context.Context, client *strava.Client) (int, error) {
 	count := 0
+
+	runtastic_metadata, uploadsService, athlete, err := initialize(session, ctx, client)
+
+	if err != nil {
+		return count, err
+	}
+
 	strava_meta, err := athlete.ListActivities().Page(1).Do()
 
 	if err != nil {
