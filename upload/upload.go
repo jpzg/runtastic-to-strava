@@ -13,7 +13,7 @@ import (
 // initialize performs code that happens regardless of thoroughness, including getting metadata from runtastic and creating the Strava upload service.
 func initialize(session *api.Session, ctx context.Context, client *strava.Client) ([]api.Metadata, *strava.UploadsService, *strava.CurrentAthleteService, error) {
 
-	runtastic_metadata, err := session.GetMetadata(ctx)
+	runtasticMetadata, err := session.GetMetadata(ctx)
 
 	if err != nil {
 		return nil, nil, nil, err
@@ -22,7 +22,7 @@ func initialize(session *api.Session, ctx context.Context, client *strava.Client
 	uploadsService := strava.NewUploadsService(client)
 	athlete := strava.NewCurrentAthleteService(client)
 
-	return runtastic_metadata, uploadsService, athlete, err
+	return runtasticMetadata, uploadsService, athlete, err
 }
 
 // uploadActivity takes a runtastic activity ID and uploads the corresponding activity to Strava.
@@ -69,28 +69,36 @@ func uploadActivity(id api.ActivityID, session *api.Session, ctx context.Context
 func UploadNormal(session *api.Session, ctx context.Context, client *strava.Client) (int, error) {
 	count := 0
 
-	runtastic_metadata, uploadsService, athlete, err := initialize(session, ctx, client)
+	runtasticMetadata, uploadsService, athlete, err := initialize(session, ctx, client)
 
 	if err != nil {
 		return count, err
 	}
 
-	strava_meta, err := athlete.ListActivities().Page(1).Do()
+	stravaMeta, err := athlete.ListActivities().Page(1).Do()
 
 	if err != nil {
 		return count, err
 	}
 
-	last_activity := strava_meta[0].StartDate
-	fmt.Printf("Last strava activity was on %s\n", last_activity)
+	lastActivity := stravaMeta[0].StartDate
+	fmt.Printf("Last strava activity was on %s\n", lastActivity)
 
-	runtastic_meta, err := session.GetMetadata(ctx)
+	for i, _ := range runtasticMetadata {
+		index := len(runtasticMetadata) - 1 - i
 
-	if err != nil {
-		return count, err
+		if runtasticMetadata[index].StartTime.After(lastActivity) {
+			summary, err := uploadActivity(runtasticMetadata[index].ID, session, ctx, uploadsService)
+
+			if err != nil {
+				return count, err
+			}
+			fmt.Println(summary)
+			count++
+		} else {
+			break
+		}
 	}
-
-	fmt.Println("Successfully logged into Runtastic")
 
 	return count, nil
 }
@@ -98,23 +106,18 @@ func UploadNormal(session *api.Session, ctx context.Context, client *strava.Clie
 func UploadThorough(session *api.Session, ctx context.Context, client *strava.Client) (int, error) {
 	count := 0
 
-	runtastic_metadata, uploadsService, athlete, err := initialize(session, ctx, client)
+	//runtasticMetadata, uploadsService, athlete, err := initialize(session, ctx, client)
+	_, _, _, err := initialize(session, ctx, client)
 
 	if err != nil {
 		return count, err
 	}
 
-	strava_meta, err := athlete.ListActivities().Page(1).Do()
+	/*stravaMeta, err := athlete.ListActivities().Page(1).Do()
 
 	if err != nil {
 		return count, nil
 	}
-
-	runtastic_meta, err := session.GetMetadata(ctx)
-
-	if err != nil {
-		return count, nil
-	}
-
+	*/
 	return count, nil
 }

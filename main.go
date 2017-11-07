@@ -81,11 +81,13 @@ func main() {
 
 	client := strava.NewClient(token)
 
+	var count int
+
 	switch thorough {
 	case true:
-		count, err := upload.UploadThorough(session, ctx, client)
+		count, err = upload.UploadThorough(session, ctx, client)
 	case false:
-		count, err := upload.UploadNormal(session, ctx, client)
+		count, err = upload.UploadNormal(session, ctx, client)
 	}
 
 	fmt.Printf("\nUploaded %d activities\n", count)
